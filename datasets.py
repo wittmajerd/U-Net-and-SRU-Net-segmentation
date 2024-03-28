@@ -6,8 +6,8 @@ from torchvision.transforms import ToTensor
 import numpy as np
 import os
 
-class BiosensorDataset(Dataset):                                          #bool vagy np.int32
-    def __init__(self, path, transform=None, biosensor_length=128, mask_size=80, mask_type='np.int32'):
+class BiosensorDataset(Dataset):
+    def __init__(self, path, mask_type, transform=None, biosensor_length=128, mask_size=80):
         self.transform = transform
         self.path = path
         self.length = biosensor_length
