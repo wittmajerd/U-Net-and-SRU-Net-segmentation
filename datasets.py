@@ -41,7 +41,7 @@ class BiosensorDataset(Dataset):
         # Only one index
         data = np.load(self.path + str(index) + '.npz')
         bio = self.uniform_time_dim(torch.from_numpy(data['biosensor']))
-        mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['centers'])
+        mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
         if self.transform:
             data = self.transform(bio, mask)
         return bio, mask
@@ -64,7 +64,10 @@ class BiosensorDataset(Dataset):
 
         # Add the cell centers to the mask
         indices = np.transpose(scaled_centers.astype(int))
-        interpolated_mask[indices[0], indices[1]] = 255
+        if self.mask_type == bool:
+            interpolated_mask[indices[0], indices[1]] = True
+        else:
+            interpolated_mask[indices[0], indices[1]] = 255
         
         return interpolated_mask
 
