@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms.functional import to_pil_image
 from tqdm import tqdm
 
-import wandb
+# import wandb
 from src.dice_score import dice_loss
 from src.evaluate import evaluate, predict_image
 
@@ -28,13 +28,13 @@ def train_model(
     assert model.n_classes == 1, 'Can only train binary classification model with this function'
 
     # (Initialize logging)
-    experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
-    experiment.config.update({
-        'epochs': epochs,
-        'batch_size': train_loader.batch_size,
-        'learning_rate': learning_rate,
-        'amp': amp,
-    })
+    # experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
+    # experiment.config.update({
+    #     'epochs': epochs,
+    #     'batch_size': train_loader.batch_size,
+    #     'learning_rate': learning_rate,
+    #     'amp': amp,
+    # })
 
     print(f'''Starting training:
         Epochs:          {epochs}
@@ -74,7 +74,7 @@ def train_model(
                 # Forward pass
                 with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
                     masks_pred_logits = model(images)
-                    loss = criterion(masks_pred_logits, true_masks)
+                    loss = criterion(masks_pred_logits, true_masks.unsqueeze(1))
 
                     # Predictions with probabilities
                     masks_pred = F.sigmoid(masks_pred_logits).squeeze(dim=1)
@@ -93,11 +93,11 @@ def train_model(
                 pbar.update(train_loader.batch_size)
                 global_step += 1
                 epoch_loss += loss.item()
-                experiment.log({
-                    'train loss': loss.item(),
-                    'step': global_step,
-                    'epoch': epoch
-                })
+                # experiment.log({
+                #     'train loss': loss.item(),
+                #     'step': global_step,
+                #     'epoch': epoch
+                # })
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
 
                 # Log statistics
@@ -114,23 +114,23 @@ def train_model(
                     predicted_mask = (masks_pred[image_ix] > 0.5).cpu()
                     ground_truth = torch.squeeze(true_masks[image_ix], dim=0).cpu()
 
-                    experiment.log({
-                        'learning rate': optimizer.param_groups[0]['lr'],
-                        'validation Dice': val_score,
-                        'image': wandb.Image(
-                            to_pil_image(images[image_ix]), 
-                            masks={
-                                'prediction': {'mask_data': predicted_mask.numpy(), 'class_labels': class_labels},
-                                'ground_truth': {'mask_data': ground_truth.numpy(), 'class_labels': class_labels}
-                            },
-                        ),
-                        'masks': {
-                            'pred': wandb.Image(predicted_mask.float()),
-                            'true': wandb.Image(ground_truth.float()),
-                        },
-                        'step': global_step,
-                        'epoch': epoch,
-                    })
+                    # experiment.log({
+                    #     'learning rate': optimizer.param_groups[0]['lr'],
+                    #     'validation Dice': val_score,
+                    #     'image': wandb.Image(
+                    #         to_pil_image(images[image_ix]), 
+                    #         masks={
+                    #             'prediction': {'mask_data': predicted_mask.numpy(), 'class_labels': class_labels},
+                    #             'ground_truth': {'mask_data': ground_truth.numpy(), 'class_labels': class_labels}
+                    #         },
+                    #     ),
+                    #     'masks': {
+                    #         'pred': wandb.Image(predicted_mask.float()),
+                    #         'true': wandb.Image(ground_truth.float()),
+                    #     },
+                    #     'step': global_step,
+                    #     'epoch': epoch,
+                    # })
 
         # Save checkpoint
         Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
