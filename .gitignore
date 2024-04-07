@@ -3,3 +3,5 @@
 *.pkl
 *.pyc
 *.pth
+*.yaml
+/lightning_logs

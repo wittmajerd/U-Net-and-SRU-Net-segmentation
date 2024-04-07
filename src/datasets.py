@@ -40,7 +40,7 @@ class BiosensorDataset(Dataset):
         
         # Only one index
         data = np.load(self.path + str(index) + '.npz')
-        bio = self.uniform_time_dim(torch.from_numpy(data['biosensor']))
+        bio = self.uniform_time_dim(torch.from_numpy(data['biosensor'].astype(np.float32)))
         mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
         if self.transform:
             data = self.transform(bio, mask)
