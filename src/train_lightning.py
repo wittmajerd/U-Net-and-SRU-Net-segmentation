@@ -23,6 +23,7 @@ class UNetLightningModule(LightningModule):
     def training_step(self, batch, batch_idx):
         images, true_masks = batch
         masks_pred_logits = self(images)
+        # BCEWithLogitsLoss + dice_loss???
         loss = self.criterion(masks_pred_logits, true_masks.unsqueeze(1))
         self.log('train_loss', loss)
         return loss
@@ -53,8 +54,9 @@ class BiosensorDataModule(LightningDataModule):
         # dataset
         dataset = BiosensorDataset(self.data_path, mask_type=self.mask_type, biosensor_length=self.biosensor_length, mask_size=self.mask_size)
 
-        # Transform
-
+        # Transform? Biosensor length is changing
+        # Calc mean and std of dataset here after knowing the length of the biosensor
+        
 
         # split dataset
         train_size = int(len(dataset)*0.86)
