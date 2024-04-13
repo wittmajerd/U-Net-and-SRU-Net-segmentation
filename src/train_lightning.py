@@ -54,10 +54,6 @@ class BiosensorDataModule(LightningDataModule):
         # dataset
         dataset = BiosensorDataset(self.data_path, mask_type=self.mask_type, biosensor_length=self.biosensor_length, mask_size=self.mask_size)
 
-        # Transform? Biosensor length is changing
-        # Calc mean and std of dataset here after knowing the length of the biosensor
-        
-
         # split dataset
         train_size = int(len(dataset)*0.86)
         val_size = len(dataset) - train_size
