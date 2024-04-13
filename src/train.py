@@ -149,8 +149,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.001,
-                        help='Learning rate', dest='lr')
+    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.001, help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     parser.add_argument('--predict', type=str, default=False, help='Load image and perform prediction on it (use with load flag to use trained model)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
@@ -162,34 +161,33 @@ def get_args():
 def main():
     import os
 
-    from data.datasets import AirbusDataset, AirbusTrainingset
+    from src.datasets import BiosensorDataset, calculate_mean_and_std
     from src.unet import UNet
 
     args = get_args()
 
-    data_dir = Path('data/processed')
-    training_set = AirbusTrainingset(data_dir / 'train_ship_segmentations.csv', data_dir / 'train')
-    test_set = AirbusDataset(data_dir / 'val_ship_segmentations.csv', data_dir / 'val')
-    validation_set = AirbusDataset(
-        data_dir / 'val_ship_segmentations.csv',
-        data_dir / 'val',
-        should_contain_ship=True
-    )
+    train_percent = 0.86
+    bio_len = 16
+    mask_size = 80
+    batch_size = 4
 
-    loader_args = dict(
-        batch_size=args.batch_size,
-        num_workers=os.cpu_count(),
-        pin_memory=True, 
-        generator=torch.Generator().manual_seed(42) # So we have the same shuffling through each training
-    )
-    train_loader = DataLoader(training_set, shuffle=True, **loader_args)
-    val_loader = DataLoader(validation_set, shuffle=False, **loader_args)
-    test_loader = DataLoader(test_set, shuffle=False, **loader_args)
+    files = os.listdir(data_path)
+    train_size = int(train_percent * len(files))
+    val_size = len(files) - train_size
+    train_files, val_files = torch.utils.data.random_split(files, [train_size, val_size])
+
+    mean, std = calculate_mean_and_std(data_path, train_files, biosensor_length=bio_len)
+
+    train_dataset = BiosensorDataset(data_path, train_files, mean, std, bool, biosensor_length=bio_len, mask_size=mask_size)
+    val_dataset = BiosensorDataset(data_path, val_files, mean, std, bool, biosensor_length=bio_len, mask_size=mask_size)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device {device}')
 
-    model = UNet(n_channels=3, n_classes=1, bilinear=args.bilinear)
+    model = UNet(n_channels=bio_len, n_classes=1, bilinear=args.bilinear)
     model.to(device)
     print(f'Network:\n'
         f'\t{model.n_channels} input channels\n'
