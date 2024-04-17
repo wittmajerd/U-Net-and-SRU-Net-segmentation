@@ -102,7 +102,7 @@ def train_model(
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
 
                 # Log statistics
-                if (i+1) % (len(train_loader) // 10) == 0:
+                if (i+1) == len(train_loader):
                     val_score = evaluate(model, val_loader, device)
                     print(f'Validation Dice score: {val_score}')
 
