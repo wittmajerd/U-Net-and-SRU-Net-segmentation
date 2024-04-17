@@ -5,3 +5,5 @@
 *.pth
 *.yaml
 /lightning_logs
+*.log
+/wandb
