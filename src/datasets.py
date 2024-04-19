@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import Dataset
-from torchvision.transforms import Normalize
+from torchvision.transforms import Normalize, v2
 import numpy as np
 import os
 
@@ -21,19 +21,29 @@ def calculate_mean_and_std(path, train_files, biosensor_length=16):
 
 
 class BiosensorDataset(Dataset):
-    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80):
+    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False):
         self.path = path
         self.files = files
-        self.transform = Normalize(mean=mean, std=std)
+        self.normalize = Normalize(mean=mean, std=std)
         self.mask_type = mask_type
         self.length = biosensor_length
         self.mask_size = mask_size
+        if augment:
+            self.transform = v2.Compose([
+                v2.RandomHorizontalFlip(),
+                v2.RandomVerticalFlip(),
+                v2.RandomRotation(90),
+            ])
+        else:
+            self.transform = None
 
     def __getitem__(self, index):
         data = np.load(self.path + self.files[index])
         bio = self.uniform_time_dim(torch.from_numpy(data['biosensor'].astype(np.float32)))
         mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
-        bio = self.transform(bio)
+        bio = self.normalize(bio)
+        if self.transform:
+            bio, mask = self.transform(bio, mask)
         return bio, mask
         
     def __len__(self):
