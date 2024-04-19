@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from skimage.measure import label
 
 from src.dice_score import dice_coeff, multiclass_dice_coeff
 
@@ -13,6 +14,9 @@ def evaluate(net, dataloader: DataLoader, device: torch.device):
     net.eval()
     num_val_batches = len(dataloader)
     dice_score = 0
+    # Count the number of cells in the ground truth and the number of cells detected by the model
+    total_cells = 0
+    detected_cells = 0
 
     # iterate over the specified set
     for batch in tqdm(dataloader, total=num_val_batches, desc='Evaluation round', unit='batch', position=0, leave=False):
@@ -39,8 +43,22 @@ def evaluate(net, dataloader: DataLoader, device: torch.device):
             # compute the Dice score, ignoring background
             dice_score += multiclass_dice_coeff(mask_preds[:, 1:], true_masks[:, 1:], reduce_batch_first=False)
 
+        # Move the predictions and labels to the CPU and convert them to numpy arrays
+        mask_preds = mask_preds.cpu().detach().numpy()
+        true_masks = true_masks.cpu().numpy()
+
+        for i in range(len(images)):
+            # Label the binary prediction and count the number of cells
+            _, num_cells_pred = label(mask_preds[i], return_num=True)
+            _, num_cells_label = label(true_masks[i], return_num=True)
+
+            total_cells += num_cells_label
+            detected_cells += num_cells_pred
+
+    cell_detection_rate = detected_cells / total_cells if total_cells > 0 else 0
+
     net.train()
-    return dice_score / max(num_val_batches, 1)
+    return dice_score / max(num_val_batches, 1), cell_detection_rate
 
 
 @torch.inference_mode()

@@ -28,7 +28,7 @@ def train_model(
     assert model.n_classes == 1, 'Can only train binary classification model with this function'
 
     # (Initialize logging)
-    experiment = wandb.init(project='Biosensor Segmentation', resume='allow', anonymous='must')
+    experiment = wandb.init(project='Biosensor Segmentation 2', resume='allow', anonymous='must')
     experiment.config.update({
         'epochs': epochs,
         'batch_size': train_loader.batch_size,
@@ -103,8 +103,8 @@ def train_model(
 
                 # Log statistics
                 if (i+1) == len(train_loader):
-                    val_score = evaluate(model, val_loader, device)
-                    print(f'Validation Dice score: {val_score}')
+                    val_score, detection_rate = evaluate(model, val_loader, device)
+                    print(f'Validation Dice score: {val_score}, Detection rate: {detection_rate}')
 
                     # Reduce lr when validation does not get better
                     scheduler.step(val_score)
@@ -131,6 +131,7 @@ def train_model(
                         },
                         'step': global_step,
                         'epoch': epoch,
+                        'detection_rate': detection_rate,
                     })
 
         # Save checkpoint
