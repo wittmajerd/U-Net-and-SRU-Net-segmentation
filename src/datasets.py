@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import Normalize, v2
+from torchvision import tv_tensors
 import numpy as np
 import os
 
@@ -43,6 +44,7 @@ class BiosensorDataset(Dataset):
         mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
         bio = self.normalize(bio)
         if self.transform:
+            mask = tv_tensors.Mask(mask)
             bio, mask = self.transform(bio, mask)
         return bio, mask
         
