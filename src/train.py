@@ -110,7 +110,7 @@ def train_model(
                     scheduler.step(val_score)
 
                     # Search for an image containing a ship in batch
-                    ixs = torch.nonzero(true_masks)[:, 0] # Indexes of images that contain ships
+                    ixs = torch.nonzero(true_masks)[:, 0]
                     image_ix = ixs[0].item() if ixs.size(0) > 0 else 0
                     predicted_mask = (masks_pred[image_ix] > 0.5).cpu()
                     ground_truth = torch.squeeze(true_masks[image_ix], dim=0).cpu()
