@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import numpy as np
 
-from .unet_parts import *
+from .sru_net_parts import *
 
 class UNet2(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
