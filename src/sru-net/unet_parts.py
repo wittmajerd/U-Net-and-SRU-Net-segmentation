@@ -17,8 +17,7 @@ class one_conv(nn.Module):
         )
 
     def forward(self, x):
-        x = self.conv(x)
-        return x
+        return self.conv(x)
 
 
 class inconv(nn.Module):
@@ -27,8 +26,7 @@ class inconv(nn.Module):
         self.conv = one_conv(in_ch, out_ch)
 
     def forward(self, x):
-        x = self.conv(x)
-        return x
+        return self.conv(x)
 
 
 class down(nn.Module):
@@ -40,14 +38,12 @@ class down(nn.Module):
         )
 
     def forward(self, x):
-        x = self.mpconv(x)
-        return x
+        return self.mpconv(x)
 
 
 class up(nn.Module):
     def __init__(self, in_ch, out_ch, bilinear=True):
         super(up, self).__init__()
-
         #  would be a nice idea if the upsampling could be learned too,
         #  but my machine do not have enough memory to handle all those weights
         if bilinear:
@@ -59,7 +55,6 @@ class up(nn.Module):
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        
         # input is CHW
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
@@ -72,8 +67,7 @@ class up(nn.Module):
         # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
 
         x = torch.cat([x2, x1], dim=1)
-        x = self.conv(x)
-        return x
+        return self.conv(x)
 
 
 class outconv(nn.Module):
@@ -82,8 +76,7 @@ class outconv(nn.Module):
         self.conv = nn.Conv2d(in_ch, out_ch, 1)
 
     def forward(self, x):
-        x = self.conv(x)
-        return x
+        return self.conv(x)
 
 
 
@@ -92,14 +85,14 @@ class up_s(nn.Module):
     def __init__(self, in_ch, out_ch):
         super(up_s, self).__init__()
         self.upconv = nn.Sequential(
-            #nn.Upsample(scale_factor=2, mode='bilinear',align_corners=True),
-            nn.ConvTranspose2d(in_ch, in_ch, 2, stride=2),
+            # Upsmample or ConvTranspose2d???
+            nn.Upsample(scale_factor=2, mode='bilinear',align_corners=True),
+            # nn.ConvTranspose2d(in_ch, in_ch, 2, stride=2),
             one_conv(in_ch, out_ch)
         )
 
     def forward(self, x):
-        x = self.upconv(x)
-        return x
+        return self.upconv(x)
 
         
 
