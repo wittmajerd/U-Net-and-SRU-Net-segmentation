@@ -8,16 +8,13 @@ import torch.backends.cudnn as cudnn
 # from FilterCNN.model import Net
 
 # from progress_bar import progress_bar
-from SRU_model import UNet16
-from SRU_model import UNet8
-from SRU_model import UNet4
-from SRU_model import UNet2
-from Unet.GraLoss import GradientLoss
+from src.srunet.SRU_model import *
+from src.srunet.GraLoss import GradientLoss
 
-import pytorch_ssim
+from pytorch_msssim import ssim as pytorch_ssim
 import numpy as np
 
-class unetTrainer(object):
+class SRUnetTrainer(object):
     def __init__(self, config, training_loader, testing_loader):
         super(unetTrainer, self).__init__()
         self.CUDA = torch.cuda.is_available()
