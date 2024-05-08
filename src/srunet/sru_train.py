@@ -16,7 +16,7 @@ import numpy as np
 
 class SRUnetTrainer(object):
     def __init__(self, config, training_loader, testing_loader):
-        super(unetTrainer, self).__init__()
+        super(SRUnetTrainer, self).__init__()
         self.CUDA = torch.cuda.is_available()
         self.device = torch.device('cuda' if self.CUDA else 'cpu')
         self.model = None
@@ -29,17 +29,18 @@ class SRUnetTrainer(object):
         self.upscale_factor = config.upscale_factor
         self.training_loader = training_loader
         self.testing_loader = testing_loader
+        self.in_channels = config.in_channels
+        self.classes = config.classes
 
     def build_model(self):
-        #self.model = Net(num_channels=3, base_filter=64, upscale_factor=self.upscale_factor).to(self.device)
         if self.upscale_factor==2:
-            self.model = UNet2(3,3).to(self.device)
+            self.model = UNet2(self.in_channels, self.classes).to(self.device)
         if self.upscale_factor==4:
-            self.model = UNet4(3,3).to(self.device)
+            self.model = UNet4(self.in_channels, self.classes).to(self.device)
         if self.upscale_factor==8:
-            self.model = UNet8(3,3).to(self.device)
+            self.model = UNet8(self.in_channels, self.classes).to(self.device)
         if self.upscale_factor==16:
-            self.model = UNet16(3,3).to(self.device)
+            self.model = UNet16(self.in_channels, self.classes).to(self.device)
         self.model.weight_init(mean=0.0, std=0.01)
         self.criterion = torch.nn.MSELoss()
         self.criterion_3 = torch.nn.L1Loss()
@@ -58,7 +59,7 @@ class SRUnetTrainer(object):
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[50,100,150,200,300,400,500,1000], gamma=0.5)
 
     def save_model(self):
-        model_out_path = "model_path.pth"
+        model_out_path = "checkpoints/sru_save.pth"
         torch.save(self.model, model_out_path)
         print("Checkpoint saved to {}".format(model_out_path))
 
