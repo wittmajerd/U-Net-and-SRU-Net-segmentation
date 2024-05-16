@@ -10,8 +10,9 @@ import torch.backends.cudnn as cudnn
 # from progress_bar import progress_bar
 from src.srunet.SRU_model import *
 from src.srunet.GraLoss import GradientLoss
+from src.dice_score import dice_loss
 
-from pytorch_msssim import ssim as pytorch_ssim
+from pytorch_msssim import ssim
 import numpy as np
 
 class SRUnetTrainer(object):
@@ -42,12 +43,16 @@ class SRUnetTrainer(object):
         if self.upscale_factor==16:
             self.model = UNet16(self.in_channels, self.classes).to(self.device)
         self.model.weight_init(mean=0.0, std=0.01)
+
         self.criterion = torch.nn.MSELoss()
-        self.criterion_3 = torch.nn.L1Loss()
         self.criterion_2 = GradientLoss()
+        self.criterion_3 = torch.nn.L1Loss()
+        self.criterion_4 = torch.nn.BCEWithLogitsLoss()
+
         torch.manual_seed(self.seed)
 
         print('# model parameters:', sum(param.numel() for param in self.model.parameters()))
+        print(self.device)
 
         if self.CUDA:
             torch.cuda.manual_seed(self.seed)
@@ -70,11 +75,19 @@ class SRUnetTrainer(object):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             prediction = self.model(data)
-            loss1 = self.criterion_3(prediction, target)    #!!!!!
-            loss2 = self.criterion_2(prediction, target)    #!!!!!!!!
-            loss_ssim=1-pytorch_ssim.ssim(prediction, target)
-            #loss = loss1+loss2     #!!!!!!!!!
-            loss = loss1+0.1*loss_ssim
+
+            # loss1 = self.criterion_3(prediction, target)    #!!!!!
+            # loss2 = self.criterion_2(prediction, target)    #!!!!!!!!
+            # loss_ssim = 1 - ssim(prediction.float(), target.unsqueeze(1).float())
+            # #loss = loss1+loss2     #!!!!!!!!!
+            # loss = loss1+0.1*loss_ssim
+
+            loss = self.criterion_4(prediction.float(), target.unsqueeze(1).float())
+            loss += dice_loss(
+                        prediction.squeeze(1).float(),
+                        target.float(),
+                        multiclass=False
+                    )
             '''
             print("\nloss1")
             print(loss1.cpu().detach().numpy())
@@ -103,7 +116,7 @@ class SRUnetTrainer(object):
                 mse = self.criterion(prediction, target)
                 psnr = 10 * log10(1 / mse.item())
                 avg_psnr += psnr
-                ssim_value = pytorch_ssim.ssim(prediction, target)
+                ssim_value = ssim(prediction.float(), target.unsqueeze(1).float())
                 #print(ssim_value)
                 avg_ssim += ssim_value
                 # progress_bar(batch_num, len(self.testing_loader), 'PSNR: %.4f | SSIM: %.4f' % ((avg_psnr / (batch_num + 1)),avg_ssim / (batch_num + 1)))

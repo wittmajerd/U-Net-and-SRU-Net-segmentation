@@ -64,8 +64,8 @@ class UNet4(nn.Module):
         self.up1 = up(1024, 256, bilinear)
         self.up2 = up(512, 128, bilinear)
         self.up3 = up(256, 64, bilinear)
-        self.up4 = up(128, 64, bilinear)
-        self.up5 = up(64, 32, bilinear)
+        self.up4 = up(128, 32, bilinear)
+        self.up5 = up(64, 16, bilinear)
         self.up6 = up(32, 16, bilinear)
         self.outc = outconv(16, n_classes)  #64?
 
