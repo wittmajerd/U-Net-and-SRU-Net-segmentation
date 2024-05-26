@@ -149,7 +149,7 @@ class UNet8(nn.Module):
 
         x = self.up5(x, x0)
         x = self.up6(x, x_1)
-        x = self.up7(x,x_2)
+        x = self.up7(x, x_2)
         x = self.outc(x)
 
         return x
@@ -177,13 +177,13 @@ class UNet16(nn.Module):
         self.up5 = up(64, 16)
         self.up6 = up(32,8)
         self.up7 = up(16,8)
-        self.up8 = up(8,8)
+        self.up8 = up(8,4)
         self.outc = outconv(8, n_classes)   #64
 
         self.up_s1=up_s(64,32)
         self.up_s2=up_s(32,16)
         self.up_s3=up_s(16,8)
-        self.up_s4=up_s(8,8)
+        self.up_s4=up_s(8,4)
 
     def forward(self, x):
         x1 = self.inc(x)

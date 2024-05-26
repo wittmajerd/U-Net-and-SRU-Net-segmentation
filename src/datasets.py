@@ -71,16 +71,18 @@ class BiosensorDataset(Dataset):
         else:
             interpolated_mask[indices[0], indices[1]] = 255
         
-        # Convert the mask to numpy array for dilation
-        mask_np = interpolated_mask.numpy()
+        # # Convert the mask to numpy array for dilation
+        # mask_np = interpolated_mask.numpy()
 
-        # Define the structuring element for dilation
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
+        # # Define the structuring element for dilation
+        # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
 
-        # Perform dilation
-        dilated_mask = cv2.dilate(mask_np, kernel, iterations = 1)
+        # # Perform dilation
+        # dilated_mask = cv2.dilate(mask_np, kernel, iterations = 1)
 
-        # Convert the dilated mask back to tensor
-        dilated_mask = torch.from_numpy(dilated_mask)
+        # # Convert the dilated mask back to tensor
+        # dilated_mask = torch.from_numpy(dilated_mask)
 
-        return dilated_mask
+        # return dilated_mask
+        
+        return interpolated_mask
