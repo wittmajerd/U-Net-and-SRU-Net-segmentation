@@ -9,7 +9,7 @@ class one_conv(nn.Module):
         super(one_conv, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            #nn.BatchNorm2d(out_ch),
+            nn.BatchNorm2d(out_ch),
             #nn.ReLU(inplace=True),
             #nn.Conv2d(out_ch, out_ch, 3, padding=1),
             #nn.BatchNorm2d(out_ch),
