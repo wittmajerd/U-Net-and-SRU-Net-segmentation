@@ -164,7 +164,7 @@ def main():
     import os
 
     from src.datasets import BiosensorDataset, calculate_mean_and_std
-    from src.unet import UNet
+    from src.srunet import UNet4 as UNet
 
     args = get_args()
 
