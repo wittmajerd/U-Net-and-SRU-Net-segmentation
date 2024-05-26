@@ -13,14 +13,18 @@ class UNet(nn.Module):
         self.inc = (DoubleConv(n_channels, 64))
         self.down1 = (Down(64, 128))
         self.down2 = (Down(128, 256))
-        self.down3 = (Down(256, 512))
-        factor = 2 if bilinear else 1
-        self.down4 = (Down(512, 1024 // factor))
-        self.up1 = (Up(1024, 512 // factor, bilinear))
-        self.up2 = (Up(512, 256 // factor, bilinear))
-        self.up3 = (Up(256, 128 // factor, bilinear))
-        self.up4 = (Up(128, 64, bilinear))
-        self.outc = (OutConv(64, n_classes))
+        self.down3 = Down(256, 512)
+        self.down4 = Down(512, 512)
+        self.up1 = Up(1024, 256, bilinear)
+        self.up2 = Up(512, 128, bilinear)
+        self.up3 = Up(256, 64, bilinear)
+        self.up4 = Up(128, 32, bilinear)
+        self.up5 = Up(64, 16, bilinear)
+        self.up6 = Up(32, 16, bilinear)
+        self.outc = OutConv(16, n_classes)
+
+        self.up_s1 = UpScale(64,32,bilinear)
+        self.up_s2 = UpScale(32,16,bilinear)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -32,6 +36,13 @@ class UNet(nn.Module):
         x = self.up2(x, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
+
+        x0 = self.up_s1(x1)
+        X_1 = self.up_s2(x0)
+
+        x = self.up5(x, x0)
+        x = self.up6(x, X_1)
+
         logits = self.outc(x)
         return logits
 
@@ -45,4 +56,8 @@ class UNet(nn.Module):
         self.up2 = torch.utils.checkpoint(self.up2)
         self.up3 = torch.utils.checkpoint(self.up3)
         self.up4 = torch.utils.checkpoint(self.up4)
+        self.up5 = torch.utils.checkpoint(self.up5)
+        self.up6 = torch.utils.checkpoint(self.up6)
+        self.up_s1 = torch.utils.checkpoint(self.up_s1)
+        self.up_s2 = torch.utils.checkpoint(self.up_s2)
         self.outc = torch.utils.checkpoint(self.outc)

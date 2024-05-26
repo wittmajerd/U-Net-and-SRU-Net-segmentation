@@ -100,7 +100,7 @@ class UNet4(nn.Module):
         x = self.up6(x, x_1)
         x = self.outc(x)
 
-        return torch.sigmoid(x)
+        return x
 
     def weight_init(self, mean, std):
         for m in self._modules:
@@ -152,7 +152,7 @@ class UNet8(nn.Module):
         x = self.up7(x,x_2)
         x = self.outc(x)
 
-        return torch.sigmoid(x)
+        return x
 
     def weight_init(self, mean, std):
         for m in self._modules:
@@ -208,7 +208,7 @@ class UNet16(nn.Module):
         x = self.up8(x, x_3)
         x = self.outc(x)
 
-        return torch.sigmoid(x)
+        return x
 
     def weight_init(self, mean, std):
         for m in self._modules:
