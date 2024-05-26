@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import wandb
 from src.dice_score import dice_loss
-from src.evaluate import evaluate, predict_image
+from src.unet.evaluate import evaluate, predict_image
 
 class_labels = {0: 'background', 1: 'cell'}
 

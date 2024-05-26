@@ -9,6 +9,10 @@ from .sru_net_parts import *
 class UNet2(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
         super(UNet2, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -56,6 +60,10 @@ class UNet2(nn.Module):
 class UNet4(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
         super(UNet4, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+        
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -101,6 +109,10 @@ class UNet4(nn.Module):
 class UNet8(nn.Module):
     def __init__(self, n_channels, n_classes):
         super(UNet8, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -149,6 +161,10 @@ class UNet8(nn.Module):
 class UNet16(nn.Module):
     def __init__(self, n_channels, n_classes):
         super(UNet8, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
