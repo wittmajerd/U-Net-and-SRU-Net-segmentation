@@ -84,7 +84,7 @@ def train_model(
                         torch.squeeze(true_masks, dim=1).float(),
                         multiclass=False
                     )
-
+                # print(loss)
                 grad_scaler.scale(loss).backward() # Populate gradients
                 nn.utils.clip_grad_norm_(model.parameters(), grad_clipping)
                 grad_scaler.step(optimizer) # Do optimization step

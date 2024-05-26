@@ -102,16 +102,16 @@ class UNet4(nn.Module):
 
         return x
 
-    def weight_init(self, mean, std):
-        for m in self._modules:
-            normal_init(self._modules[m], mean, std)
+    # def weight_init(self, mean, std):
+    #     for m in self._modules:
+    #         normal_init(self._modules[m], mean, std)
 
 class UNet8(nn.Module):
     def __init__(self, n_channels, n_classes):
         super(UNet8, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
-        self.bilinear = bilinear
+        # self.bilinear = bilinear
 
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
@@ -160,10 +160,10 @@ class UNet8(nn.Module):
 
 class UNet16(nn.Module):
     def __init__(self, n_channels, n_classes):
-        super(UNet8, self).__init__()
+        super(UNet16, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
-        self.bilinear = bilinear
+        # self.bilinear = bilinear
 
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
