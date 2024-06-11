@@ -5,16 +5,25 @@ from torchvision import tv_tensors
 import numpy as np
 import os
 
-def create_datasets(path, train_percent, mask_type, biosensor_length=8, mask_size=80, augment=False):
+def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False):
     files = os.listdir(path)
     train_size = int(train_percent * len(files))
     val_size = len(files) - train_size
     train_files, val_files = torch.utils.data.random_split(files, [train_size, val_size])
 
+    if test_percent>0:
+        test_size = int(test_percent * len(files))
+        val_size = val_size - test_size
+        train_files, val_files, test_files = torch.utils.data.random_split(files, [train_size, val_size, test_size])
+
+
     mean, std = calculate_mean_and_std(path, train_files, biosensor_length)
 
     train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length, mask_size, augment)
     val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length, mask_size)
+    if test_percent>0:
+        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length, mask_size)
+        return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
 
 
