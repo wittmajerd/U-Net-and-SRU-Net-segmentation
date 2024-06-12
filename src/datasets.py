@@ -25,12 +25,12 @@ def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_le
         return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
 
-# Gives a linearly spaced indices array of length length for the biosensor subsampling
+# Gives linearly spaced indices for the biosensor subsampling
 # n is the length of the original biosensor
 # length is the length of the subsampled biosensor
 # The indices are 1-indexed because the first frame would be empty so we skip it
-def lin_indices(n, length):
-    indices = np.linspace(0, n - 1, length + 1, dtype=int)
+def lin_indices(original_length, subsampled_length):
+    indices = np.linspace(0, original_length - 1, subsampled_length + 1, dtype=int)
     return indices[1:]
 
 def calculate_mean_and_std(path, train_files, biosensor_length=16):
