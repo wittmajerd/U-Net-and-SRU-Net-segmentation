@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import numpy as np
 
 
-
 class GradientLoss(nn.Module):
     def __init__(self):
         super(GradientLoss, self).__init__()

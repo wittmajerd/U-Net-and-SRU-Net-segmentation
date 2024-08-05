@@ -4,11 +4,15 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import numpy as np
 
-from .sru_net_parts import *
+from .srunet_parts import *
 
 class UNet2(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
         super(UNet2, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -17,10 +21,10 @@ class UNet2(nn.Module):
         self.up1 = up(1024, 256, bilinear)
         self.up2 = up(512, 128, bilinear)
         self.up3 = up(256, 64, bilinear)
-        self.up4 = up(128, 64, bilinear)
-        self.up5 = up(64, 32, bilinear)
+        self.up4 = up(128, 32, bilinear)
+        self.up5 = up(64, 16, bilinear)
 
-        self.outc = outconv(64, n_classes)
+        self.outc = outconv(16, n_classes)
 
         self.up_s1=up_s(64,32)
         #self.up_s=up_s(32,16)
@@ -47,7 +51,7 @@ class UNet2(nn.Module):
         #x = self.pixel_shuffle(x)
 
         x = self.outc(x)
-        return x    #torch.sigmoid(x)?
+        return x    #F.sigmoid(x)?
 
     def weight_init(self, mean, std):
         for m in self._modules:
@@ -56,6 +60,10 @@ class UNet2(nn.Module):
 class UNet4(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
         super(UNet4, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+        
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -92,7 +100,7 @@ class UNet4(nn.Module):
         x = self.up6(x, x_1)
         x = self.outc(x)
 
-        return torch.sigmoid(x)
+        return x
 
     def weight_init(self, mean, std):
         for m in self._modules:
@@ -101,6 +109,10 @@ class UNet4(nn.Module):
 class UNet8(nn.Module):
     def __init__(self, n_channels, n_classes):
         super(UNet8, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        # self.bilinear = bilinear
+
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -137,10 +149,10 @@ class UNet8(nn.Module):
 
         x = self.up5(x, x0)
         x = self.up6(x, x_1)
-        x = self.up7(x,x_2)
+        x = self.up7(x, x_2)
         x = self.outc(x)
 
-        return torch.sigmoid(x)
+        return x
 
     def weight_init(self, mean, std):
         for m in self._modules:
@@ -148,7 +160,11 @@ class UNet8(nn.Module):
 
 class UNet16(nn.Module):
     def __init__(self, n_channels, n_classes):
-        super(UNet8, self).__init__()
+        super(UNet16, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        # self.bilinear = bilinear
+
         self.inc = inconv(n_channels, 64)
         self.down1 = down(64, 128)
         self.down2 = down(128, 256)
@@ -160,14 +176,14 @@ class UNet16(nn.Module):
         self.up4 = up(128, 32)  #(128, 64)
         self.up5 = up(64, 16)
         self.up6 = up(32,8)
-        self.up7 = up(16,8)
-        self.up8 = up(8,8)
-        self.outc = outconv(8, n_classes)   #64
+        self.up7 = up(16,4)
+        self.up8 = up(8,4)
+        self.outc = outconv(4, n_classes)   #64
 
         self.up_s1=up_s(64,32)
         self.up_s2=up_s(32,16)
         self.up_s3=up_s(16,8)
-        self.up_s4=up_s(8,8)
+        self.up_s4=up_s(8,4)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -184,7 +200,7 @@ class UNet16(nn.Module):
         x0=self.up_s1(x1)
         x_1=self.up_s2(x0)
         x_2=self.up_s3(x_1)
-        x_3=self.up_s3(x_2)
+        x_3=self.up_s4(x_2)
 
         x = self.up5(x, x0)
         x = self.up6(x, x_1)
@@ -192,7 +208,7 @@ class UNet16(nn.Module):
         x = self.up8(x, x_3)
         x = self.outc(x)
 
-        return torch.sigmoid(x)
+        return x
 
     def weight_init(self, mean, std):
         for m in self._modules:

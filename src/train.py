@@ -24,7 +24,8 @@ def train_model(
     epochs: int = 5,
     amp: bool = False,
     checkpoint_dir = Path('checkpoints'),
-    wandb_logging: bool = False
+    wandb_logging: bool = False,
+    dilation = 0
 ):
     assert model.n_classes == 1, 'Can only train binary classification model with this function'
 
@@ -37,6 +38,7 @@ def train_model(
             'learning_rate': learning_rate,
             'bio_len': train_loader.dataset.length,
             'amp': amp,
+            'dilation': dilation,
         })
 
     print(f'''Starting training:
@@ -47,6 +49,7 @@ def train_model(
         Validation size: {len(val_loader.dataset)}
         Device:          {device.type}
         Mixed Precision: {amp}
+        Dilatation:      {dilation}
     ''')
 
     grad_clipping = 1.0
@@ -150,6 +153,8 @@ def save_model(model: nn.Module, epoch: int, lr: float, dir):
     state_dict['learning_rate'] = lr
     torch.save(state_dict, str(dir / f'checkpoint_epoch{epoch}.pth'))
 
+
+
 def get_args():
     import argparse
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
@@ -163,11 +168,11 @@ def get_args():
     parser.add_argument('--eval', action='store_true', default=False, help='Only evaluate the model')
     return parser.parse_args()
 
-
+# not working
 def main():
     import os
 
-    from src.datasets import BiosensorDataset, calculate_mean_and_std
+    from src.datasets import create_datasets
     from src.unet import UNet
 
     args = get_args()
@@ -237,6 +242,5 @@ def main():
         torch.cuda.empty_cache()
         print('Detected OutOfMemoryError!')
 
-
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

@@ -4,8 +4,9 @@ from torchvision.transforms import Normalize, v2
 from torchvision import tv_tensors
 import numpy as np
 import os
+import cv2
 
-def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False):
+def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False, dilation=0):
     files = os.listdir(path)
     train_size = int(train_percent * len(files))
     val_size = len(files) - train_size
@@ -18,10 +19,10 @@ def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_le
 
     mean, std = calculate_mean_and_std(path, train_files, biosensor_length)
 
-    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length, mask_size, augment)
-    val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length, mask_size)
+    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, dilation=dilation)
+    val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size)
     if test_percent>0:
-        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length, mask_size)
+        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size)
         return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
 
@@ -51,13 +52,15 @@ def calculate_mean_and_std(path, train_files, biosensor_length=16):
 
 
 class BiosensorDataset(Dataset):
-    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False):
+    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False, dilation=0):
         self.path = path
         self.files = files
         self.normalize = Normalize(mean=mean, std=std)
         self.mask_type = mask_type
         self.length = biosensor_length
         self.mask_size = mask_size
+        self.dilation = dilation
+        
         if augment:
             self.transform = v2.Compose([
                 v2.RandomHorizontalFlip(),
@@ -99,5 +102,16 @@ class BiosensorDataset(Dataset):
             interpolated_mask[indices[0], indices[1]] = True
         else:
             interpolated_mask[indices[0], indices[1]] = 255
+        
+        if self.dilation > 0:
+            # Convert the mask to numpy array for dilation
+            mask_np = interpolated_mask.numpy()
+            # Define the structuring element for dilation
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (self.dilation, self.dilation))
+            # Perform dilation
+            dilated_mask = cv2.dilate(mask_np, kernel, iterations = 1)
+            # Convert the dilated mask back to tensor
+            dilated_mask = torch.from_numpy(dilated_mask)
+            return dilated_mask
         
         return interpolated_mask
