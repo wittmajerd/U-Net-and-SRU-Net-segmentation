@@ -6,7 +6,7 @@ import numpy as np
 import os
 import cv2
 
-def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False, dilation=0):
+def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False, dilation=0, input_scaling=False, upscale_mode='nearest'):
     files = os.listdir(path)
     train_size = int(train_percent * len(files))
     val_size = len(files) - train_size
@@ -17,12 +17,12 @@ def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_le
         val_size = val_size - test_size
         train_files, val_files, test_files = torch.utils.data.random_split(files, [train_size, val_size, test_size])
 
-    mean, std = calculate_mean_and_std(path, train_files, biosensor_length)
+    mean, std = calculate_mean_and_std(path, train_files, biosensor_length, mask_size, input_scaling, upscale_mode)
 
-    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, dilation=dilation)
-    val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size)
+    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
+    val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
     if test_percent>0:
-        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size)
+        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale)
         return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
 
@@ -34,17 +34,21 @@ def lin_indices(original_length, subsampled_length):
     indices = np.linspace(0, original_length - 1, subsampled_length + 1, dtype=int)
     return indices[1:]
 
-def calculate_mean_and_std(path, train_files, biosensor_length=16):
+def calculate_mean_and_std(path, train_files, biosensor_length=16, mask_size=80, input_scaling=False, upscale_mode='nearest'):
     # Preallocate a tensor of the correct size
-    data = torch.empty((len(train_files), biosensor_length, 80, 80))
+    if input_scaling:
+        data = torch.empty((len(train_files), biosensor_length, mask_size, mask_size))
+    else:
+        data = torch.empty((len(train_files), biosensor_length, 80, 80))
 
     for i, file in enumerate(train_files):
         loaded_data = np.load(path + file)
         # Get the biosensor data with the correct length
         biosensor = torch.from_numpy(loaded_data['biosensor'].astype(np.float32))
-        # indices = np.linspace(0, biosensor.shape[0] - 1, biosensor_length, dtype=int)
         indices = lin_indices(biosensor.shape[0], biosensor_length)
         bio = biosensor[indices]
+        if input_scaling:
+            bio = torch.nn.functional.interpolate(bio.unsqueeze(0), size=(mask_size, mask_size), mode=upscale_mode).squeeze(0)
         # Fill the preallocated tensor
         data[i] = bio
 
@@ -52,7 +56,7 @@ def calculate_mean_and_std(path, train_files, biosensor_length=16):
 
 
 class BiosensorDataset(Dataset):
-    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False, dilation=0):
+    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False, dilation=0, input_scaling=False, upscale_mode='nearest'):
         self.path = path
         self.files = files
         self.normalize = Normalize(mean=mean, std=std)
@@ -60,6 +64,8 @@ class BiosensorDataset(Dataset):
         self.length = biosensor_length
         self.mask_size = mask_size
         self.dilation = dilation
+        self.input_scaling = input_scaling
+        self.upscale_mode = upscale_mode
         
         if augment:
             self.transform = v2.Compose([
@@ -72,7 +78,7 @@ class BiosensorDataset(Dataset):
 
     def __getitem__(self, index):
         data = np.load(self.path + self.files[index])
-        bio = self.uniform_time_dim(torch.from_numpy(data['biosensor'].astype(np.float32)))
+        bio = self.uniform_biosensor(torch.from_numpy(data['biosensor'].astype(np.float32)))
         mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
         bio = self.normalize(bio)
         if self.transform:
@@ -83,10 +89,13 @@ class BiosensorDataset(Dataset):
     def __len__(self):
         return len(self.files)
     
-    def uniform_time_dim(self, biosensor):
-        # indices = np.linspace(0, biosensor.shape[0] - 1, self.length, dtype=int)
+    def uniform_biosensor(self, biosensor):
         indices = lin_indices(biosensor.shape[0], self.length)
-        return biosensor[indices]
+        if self.input_scaling == False:
+            return biosensor[indices]
+        downsampled_bio = biosensor[indices]
+        upscaled = torch.nn.functional.interpolate(downsampled_bio.unsqueeze(0), size=(self.mask_size, self.mask_size), mode=self.upscale_mode).squeeze(0)
+        return upscaled
     
     def uniform_mask(self, mask, centers):
         interpolated_mask = torch.nn.functional.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size=(self.mask_size, self.mask_size), mode='nearest').squeeze(0).squeeze(0).byte()
