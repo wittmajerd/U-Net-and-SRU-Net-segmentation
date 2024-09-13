@@ -22,7 +22,7 @@ def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_le
     train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
     val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
     if test_percent>0:
-        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale)
+        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
         return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
 
