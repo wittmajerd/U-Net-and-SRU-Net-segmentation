@@ -50,7 +50,7 @@ class Down(nn.Module):
         return self.maxpool_conv(x)
 
 class DownSingle(nn.Module):
-    """Downscaling with maxpool then double conv"""
+    """Downscaling with maxpool then single conv"""
 
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -94,7 +94,7 @@ class Up(nn.Module):
         return self.conv(x)
 
 class UpSingle(nn.Module):
-    """Upscaling then double conv"""
+    """Upscaling then single conv"""
 
     def __init__(self, in_channels, out_channels, bilinear=True):
         super().__init__()
