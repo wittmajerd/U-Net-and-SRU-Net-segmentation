@@ -53,7 +53,7 @@ class UNet(nn.Module):
         
 
 class UNet4(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear=False):
+    def __init__(self, n_channels, n_classes, bilinear=False, bilinear_upscaling=True):
         super(UNet4, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
@@ -72,8 +72,8 @@ class UNet4(nn.Module):
         self.up6 = UpSingle(32, 16, bilinear)
         self.outc = OutConv(16, n_classes)
 
-        self.up_s1=Upscaling(64,32)
-        self.up_s2=Upscaling(32,16)
+        self.up_s1=Upscaling(64, 32, bilinear_upscaling)
+        self.up_s2=Upscaling(32, 16, bilinear_upscaling)
 
     def forward(self, xs):
         x1 = self.inc(xs)
@@ -97,7 +97,7 @@ class UNet4(nn.Module):
 
 
 class UNet8(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear=False):
+    def __init__(self, n_channels, n_classes, bilinear=False, bilinear_upscaling=True):
         super(UNet8, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
@@ -117,9 +117,9 @@ class UNet8(nn.Module):
         self.up7 = UpSingle(16,8, bilinear)
         self.outc = OutConv(8, n_classes)
 
-        self.up_s1=Upscaling(64,32)
-        self.up_s2=Upscaling(32,16)
-        self.up_s3=Upscaling(16,8)
+        self.up_s1=Upscaling(64, 32, bilinear_upscaling)
+        self.up_s2=Upscaling(32, 16, bilinear_upscaling)
+        self.up_s3=Upscaling(16, 8, bilinear_upscaling)
 
     def forward(self, x):
         x1 = self.inc(x)
