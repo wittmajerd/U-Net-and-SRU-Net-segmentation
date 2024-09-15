@@ -103,9 +103,9 @@ class UpSingle(nn.Module):
         # if not then there are weights in the upsampling so it learns the upsampling
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = SingleConv(in_channels, out_channels, in_channels // 2)
+            self.conv = SingleConv(in_channels, out_channels)
         else:
-            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
             self.conv = SingleConv(in_channels, out_channels)
 
     def forward(self, x1, x2):
@@ -139,7 +139,7 @@ class Upscaling(nn.Module):
         # Only if the upscaling is needed to be learnable
         else:
             self.upconv = nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2),
+                nn.ConvTranspose2d(in_channels // 2, out_channels // 2, kernel_size=2, stride=2),
                 SingleConv(in_channels, out_channels)
             )
 
