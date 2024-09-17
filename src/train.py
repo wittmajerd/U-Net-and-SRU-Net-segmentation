@@ -17,6 +17,7 @@ class_labels = {0: 'background', 1: 'cell'}
 
 def train_model(
     model: nn.Module,
+    project_name,
     device: torch.device,
     train_loader: DataLoader,
     val_loader: DataLoader,
@@ -31,7 +32,7 @@ def train_model(
 
     if wandb_logging:
         # (Initialize logging)
-        experiment = wandb.init(project='Biosensor Segmentation 4', resume='allow', anonymous='must')
+        experiment = wandb.init(project=project_name, resume='allow', anonymous='must')
         experiment.config.update({
             'epochs': epochs,
             'batch_size': train_loader.batch_size,
@@ -39,6 +40,8 @@ def train_model(
             'bio_len': train_loader.dataset.length,
             'amp': amp,
             'dilation': dilation,
+            'train_size': len(train_loader.dataset),
+            'val_size': len(val_loader.dataset),
         })
 
     print(f'''Starting training:
@@ -152,7 +155,6 @@ def save_model(model: nn.Module, epoch: int, lr: float, dir):
     state_dict = model.state_dict()
     state_dict['learning_rate'] = lr
     torch.save(state_dict, str(dir / f'checkpoint_epoch{epoch}.pth'))
-
 
 
 def get_args():

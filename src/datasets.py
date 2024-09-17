@@ -72,6 +72,7 @@ class BiosensorDataset(Dataset):
                 v2.RandomHorizontalFlip(),
                 v2.RandomVerticalFlip(),
                 v2.RandomRotation(90),
+                v2.RandomAffine(degrees=0, scale=(0.8, 1.2)),
             ])
         else:
             self.transform = None
@@ -84,6 +85,7 @@ class BiosensorDataset(Dataset):
         if self.transform:
             mask = tv_tensors.Mask(mask)
             bio, mask = self.transform(bio, mask)
+            # bio = AddGaussianNoise(0., 0.1)(bio)
         return bio, mask
         
     def __len__(self):
@@ -124,3 +126,14 @@ class BiosensorDataset(Dataset):
             return dilated_mask
         
         return interpolated_mask
+
+class AddGaussianNoise(object):
+    def __init__(self, mean=0.0, std=1.0):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(mean={self.mean}, std={self.std})"
