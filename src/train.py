@@ -8,6 +8,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms.functional import to_pil_image
 from tqdm import tqdm
+from torchinfo import summary
 
 import wandb
 from src.dice_score import dice_loss
@@ -18,6 +19,7 @@ class_labels = {0: 'background', 1: 'cell'}
 def train_model(
     model: nn.Module,
     project_name,
+    model_name,
     device: torch.device,
     train_loader: DataLoader,
     val_loader: DataLoader,
@@ -32,7 +34,11 @@ def train_model(
 
     if wandb_logging:
         # (Initialize logging)
-        experiment = wandb.init(project=project_name, resume='allow', anonymous='must')
+        experiment = wandb.init(
+            project=project_name, 
+            resume='allow', 
+            anonymous='must',
+            name=model_name,)
         experiment.config.update({
             'epochs': epochs,
             'batch_size': train_loader.batch_size,
@@ -40,8 +46,9 @@ def train_model(
             'bio_len': train_loader.dataset.length,
             'amp': amp,
             'dilation': dilation,
-            'train_size': len(train_loader.dataset),
-            'val_size': len(val_loader.dataset),
+            'trainable_params': summary(model).trainable_params,
+            # 'train_size': len(train_loader.dataset),
+            # 'val_size': len(val_loader.dataset),
         })
 
     print(f'''Starting training:
@@ -66,7 +73,7 @@ def train_model(
         model.train()
         epoch_loss = 0
         with tqdm(total=len(train_loader.dataset), desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
-            for i, batch in enumerate(train_loader):
+            for i, (batch) in enumerate(train_loader):
                 images, true_masks = batch
 
                 assert images.shape[1] == model.n_channels, \
@@ -118,7 +125,6 @@ def train_model(
                     # Reduce lr when validation does not get better
                     scheduler.step(val_score)
 
-                    # Search for an image containing a ship in batch
                     ixs = torch.nonzero(true_masks)[:, 0]
                     image_ix = ixs[0].item() if ixs.size(0) > 0 else 0
                     predicted_mask = (masks_pred[image_ix] > 0.5).cpu()
@@ -148,6 +154,9 @@ def train_model(
         Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
         save_model(model, epoch, optimizer.param_groups[0]['lr'], checkpoint_dir)
         print(f'Checkpoint {epoch} saved!')
+
+    if wandb_logging:
+        wandb.finish()
 
 
 def save_model(model: nn.Module, epoch: int, lr: float, dir):

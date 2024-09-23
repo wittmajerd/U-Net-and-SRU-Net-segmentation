@@ -6,7 +6,7 @@ import numpy as np
 import os
 import cv2
 
-def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False, dilation=0, input_scaling=False, upscale_mode='nearest'):
+def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False, noise=0.0, dilation=0, input_scaling=False, upscale_mode='nearest'):
     files = os.listdir(path)
     train_size = int(train_percent * len(files))
     val_size = len(files) - train_size
@@ -19,7 +19,7 @@ def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_le
 
     mean, std = calculate_mean_and_std(path, train_files, biosensor_length, mask_size, input_scaling, upscale_mode)
 
-    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
+    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, noise=noise, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
     val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
     if test_percent>0:
         test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
@@ -34,7 +34,7 @@ def lin_indices(original_length, subsampled_length):
     indices = np.linspace(0, original_length - 1, subsampled_length + 1, dtype=int)
     return indices[1:]
 
-def calculate_mean_and_std(path, train_files, biosensor_length=16, mask_size=80, input_scaling=False, upscale_mode='nearest'):
+def calculate_mean_and_std(path, train_files, biosensor_length=8, mask_size=80, input_scaling=False, upscale_mode='nearest'):
     # Preallocate a tensor of the correct size
     if input_scaling:
         data = torch.empty((len(train_files), biosensor_length, mask_size, mask_size))
@@ -56,7 +56,7 @@ def calculate_mean_and_std(path, train_files, biosensor_length=16, mask_size=80,
 
 
 class BiosensorDataset(Dataset):
-    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False, dilation=0, input_scaling=False, upscale_mode='nearest'):
+    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False, noise=0.0, dilation=0, input_scaling=False, upscale_mode='nearest'):
         self.path = path
         self.files = files
         self.normalize = Normalize(mean=mean, std=std)
@@ -66,13 +66,13 @@ class BiosensorDataset(Dataset):
         self.dilation = dilation
         self.input_scaling = input_scaling
         self.upscale_mode = upscale_mode
+        self.noise = noise
         
         if augment:
             self.transform = v2.Compose([
                 v2.RandomHorizontalFlip(),
                 v2.RandomVerticalFlip(),
                 v2.RandomRotation(90),
-                v2.RandomAffine(degrees=0, scale=(0.8, 1.2)),
             ])
         else:
             self.transform = None
@@ -85,7 +85,7 @@ class BiosensorDataset(Dataset):
         if self.transform:
             mask = tv_tensors.Mask(mask)
             bio, mask = self.transform(bio, mask)
-            # bio = AddGaussianNoise(0., 0.1)(bio)
+            bio = AddGaussianNoise(0., self.noise)(bio)  # valamiért elrontja a dataloadinget mismatchel
         return bio, mask
         
     def __len__(self):
@@ -100,7 +100,7 @@ class BiosensorDataset(Dataset):
         return upscaled
     
     def uniform_mask(self, mask, centers):
-        interpolated_mask = torch.nn.functional.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size=(self.mask_size, self.mask_size), mode='nearest').squeeze(0).squeeze(0).byte()
+        interpolated_mask = torch.nn.functional.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size=(self.mask_size, self.mask_size), mode=self.upscale_mode).squeeze(0).squeeze(0).byte()
         
         x_scale = mask.shape[0] / self.mask_size
         y_scale = mask.shape[1] / self.mask_size
@@ -128,7 +128,7 @@ class BiosensorDataset(Dataset):
         return interpolated_mask
 
 class AddGaussianNoise(object):
-    def __init__(self, mean=0.0, std=1.0):
+    def __init__(self, mean=0.0, std=0.0):
         self.mean = mean
         self.std = std
 
