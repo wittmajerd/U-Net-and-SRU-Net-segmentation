@@ -34,6 +34,23 @@ def lin_indices(original_length, subsampled_length):
     indices = np.linspace(0, original_length - 1, subsampled_length + 1, dtype=int)
     return indices[1:]
 
+# Create tiles of the biosensor and mask with the given ratio
+# Output biosensor shape: (ratio * ratio, ch, size, size)
+# Output mask shape: (ratio * ratio, size, size)
+# So basicli creates ratio * ratio batches of size x size tiles
+# If the mask is bigger then the tiles are also bigger at the same rate so SRU models can be trained
+def create_tiles(bio, mask, ratio):
+    ch, bh, bw = bio.shape
+    mh, mw = mask.shape
+    bio_size = bh // ratio
+    mask_size = mh // ratio
+
+    bio_tiles = bio.reshape(ch, ratio, bio_size, ratio, bio_size).permute(1, 3, 0, 2, 4).reshape(ratio * ratio, ch, bio_size, bio_size)
+    mask_tiles = mask.reshape(ratio, mask_size, ratio, mask_size).permute(0, 2, 1, 3).reshape(ratio * ratio, mask_size, mask_size)
+    # print(bio_tiles.shape, mask_tiles.shape)
+
+    return bio_tiles, mask_tiles
+
 def calculate_mean_and_std(path, train_files, biosensor_length=8, mask_size=80, input_scaling=False, upscale_mode='nearest'):
     # Preallocate a tensor of the correct size
     if input_scaling:
@@ -67,6 +84,8 @@ class BiosensorDataset(Dataset):
         self.input_scaling = input_scaling
         self.upscale_mode = upscale_mode
         self.noise = noise
+        self.tiling = False
+        self.tiling_ratio = 1
         
         if augment:
             self.transform = v2.Compose([
@@ -85,7 +104,9 @@ class BiosensorDataset(Dataset):
         if self.transform:
             mask = tv_tensors.Mask(mask)
             bio, mask = self.transform(bio, mask)
-            bio = AddGaussianNoise(0., self.noise)(bio)  # valamiért elrontja a dataloadinget mismatchel
+            bio = AddGaussianNoise(0., self.noise)(bio)
+        if self.tiling:
+            bio, mask = create_tiles(bio, mask, self.tiling_ratio)
         return bio, mask
         
     def __len__(self):
