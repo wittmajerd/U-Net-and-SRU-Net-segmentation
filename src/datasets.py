@@ -6,23 +6,31 @@ import numpy as np
 import os
 import cv2
 
-def create_datasets(path, train_percent, mask_type, test_percent=0, biosensor_length=8, mask_size=80, augment=False, noise=0.0, dilation=0, input_scaling=False, upscale_mode='nearest'):
+def create_datasets(config, create_config, calc_config):
+    path = config['path']
+    train_percent = create_config['train_percent']
+    test_percent = create_config.get('test_percent', 0)
+    augment = config.get('augment', False)
+
     files = os.listdir(path)
     train_size = int(train_percent * len(files))
     val_size = len(files) - train_size
     train_files, val_files = torch.utils.data.random_split(files, [train_size, val_size])
 
-    if test_percent>0:
+    if test_percent > 0:
         test_size = int(test_percent * len(files))
         val_size = val_size - test_size
         train_files, val_files, test_files = torch.utils.data.random_split(files, [train_size, val_size, test_size])
+        print('Train size:', train_size)
+        print('Validation size:', val_size)
+        print('Test size:', test_size)
 
-    mean, std = calculate_mean_and_std(path, train_files, biosensor_length, mask_size, input_scaling, upscale_mode)
+    mean, std = calculate_mean_and_std(path, train_files, calc_config)
 
-    train_dataset = BiosensorDataset(path, train_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=augment, noise=noise, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
-    val_dataset = BiosensorDataset(path, val_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
+    train_dataset = BiosensorDataset(train_files, mean, std, augment, config, calc_config)
+    val_dataset = BiosensorDataset(val_files, mean, std, False, config, calc_config)
     if test_percent>0:
-        test_dataset = BiosensorDataset(path, test_files, mean, std, mask_type, biosensor_length=biosensor_length, mask_size=mask_size, augment=False, dilation=dilation, input_scaling=input_scaling, upscale_mode=upscale_mode)
+        test_dataset = BiosensorDataset(test_files, mean, std, False, config, calc_config)
         return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
 
@@ -51,7 +59,12 @@ def create_tiles(bio, mask, ratio):
 
     return bio_tiles, mask_tiles
 
-def calculate_mean_and_std(path, train_files, biosensor_length=8, mask_size=80, input_scaling=False, upscale_mode='nearest'):
+def calculate_mean_and_std(path, train_files, calc_config):
+    biosensor_length = calc_config.get('biosensor_length', 8)
+    mask_size = calc_config.get('mask_size', 80)
+    input_scaling = calc_config.get('input_scaling', False)
+    upscale_mode = calc_config.get('upscale_mode', 'nearest')
+
     # Preallocate a tensor of the correct size
     if input_scaling:
         data = torch.empty((len(train_files), biosensor_length, mask_size, mask_size))
@@ -73,19 +86,19 @@ def calculate_mean_and_std(path, train_files, biosensor_length=8, mask_size=80, 
 
 
 class BiosensorDataset(Dataset):
-    def __init__(self, path, files, mean, std, mask_type, biosensor_length=128, mask_size=80, augment=False, noise=0.0, dilation=0, input_scaling=False, upscale_mode='nearest'):
-        self.path = path
+    def __init__(self, files, mean, std, augment, config, calc_config):
+        self.path = config['path']
         self.files = files
         self.normalize = Normalize(mean=mean, std=std)
-        self.mask_type = mask_type
-        self.length = biosensor_length
-        self.mask_size = mask_size
-        self.dilation = dilation
-        self.input_scaling = input_scaling
-        self.upscale_mode = upscale_mode
-        self.noise = noise
-        self.tiling = False
-        self.tiling_ratio = 1
+        self.mask_type = config.get('mask_type', bool)
+        self.length = config.get('biosensor_length', 8)
+        self.mask_size = config.get('mask_size', 80)
+        self.dilation = config.get('dilation', 0)
+        self.input_scaling = config.get('input_scaling', False)
+        self.upscale_mode = config.get('upscale_mode', 'nearest')
+        self.noise = config.get('noise', 0.0)
+        self.tiling = config.get('tiling', False)
+        self.tiling_ratio = config.get('tiling_ratio', 4)
         
         if augment:
             self.transform = v2.Compose([
