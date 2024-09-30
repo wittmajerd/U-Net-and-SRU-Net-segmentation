@@ -21,9 +21,6 @@ def create_datasets(config, create_config, calc_config):
         test_size = int(test_percent * len(files))
         val_size = val_size - test_size
         train_files, val_files, test_files = torch.utils.data.random_split(files, [train_size, val_size, test_size])
-        print('Train size:', train_size)
-        print('Validation size:', val_size)
-        print('Test size:', test_size)
 
     mean, std = calculate_mean_and_std(path, train_files, calc_config)
 
