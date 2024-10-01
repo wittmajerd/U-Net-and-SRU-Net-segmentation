@@ -1,17 +1,19 @@
 from pathlib import Path
-
+import numpy as np
+from PIL import Image
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
 from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms.functional import to_pil_image
 from tqdm import tqdm
 from torchinfo import summary
 
+from skimage.measure import label
+
 import wandb
-from src.dice_score import dice_loss
+from src.dice_score import dice_loss, dice_coeff, multiclass_dice_coeff
 
 class_labels = {0: 'background', 1: 'cell'}
 
@@ -184,7 +186,7 @@ def evaluate(net, dataloader: DataLoader, device: torch.device):
         true_masks = true_masks.to(device=device, dtype=torch.float32)
 
         # predict the mask (shape: B x C x H x W)
-        for i in images.shape[1]:
+        for i in range(images.shape[1]):
             mask_preds = net(images[:,i])
             true_mask = true_masks[:,i]
 
