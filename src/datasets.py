@@ -10,7 +10,6 @@ def create_datasets(config, create_config, calc_config):
     path = config['path']
     train_percent = create_config['train_percent']
     test_percent = create_config.get('test_percent', 0)
-    augment = config.get('augment', False)
 
     files = os.listdir(path)
     train_size = int(train_percent * len(files))
@@ -24,7 +23,7 @@ def create_datasets(config, create_config, calc_config):
 
     mean, std = calculate_mean_and_std(path, train_files, calc_config)
 
-    train_dataset = BiosensorDataset(train_files, mean, std, augment, config, calc_config)
+    train_dataset = BiosensorDataset(train_files, mean, std, config.get('augment', False), config, calc_config)
     val_dataset = BiosensorDataset(val_files, mean, std, False, config, calc_config)
     if test_percent>0:
         test_dataset = BiosensorDataset(test_files, mean, std, False, config, calc_config)
@@ -88,11 +87,11 @@ class BiosensorDataset(Dataset):
         self.files = files
         self.normalize = Normalize(mean=mean, std=std)
         self.mask_type = config.get('mask_type', bool)
-        self.length = config.get('biosensor_length', 8)
-        self.mask_size = config.get('mask_size', 80)
+        self.length = calc_config.get('biosensor_length', 8)
+        self.mask_size = calc_config.get('mask_size', 80)
         self.dilation = config.get('dilation', 0)
-        self.input_scaling = config.get('input_scaling', False)
-        self.upscale_mode = config.get('upscale_mode', 'nearest')
+        self.input_scaling = calc_config.get('input_scaling', False)
+        self.upscale_mode = calc_config.get('upscale_mode', 'nearest')
         self.noise = config.get('noise', 0.0)
         self.tiling = config.get('tiling', False)
         self.tiling_ratio = config.get('tiling_ratio', 4)
