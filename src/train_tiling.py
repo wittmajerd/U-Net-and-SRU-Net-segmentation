@@ -74,10 +74,15 @@ def train_model(
             for i, (batch) in enumerate(train_loader):
                 images, true_masks = batch
 
-                # assert images.shape[1] == model.n_channels, \
-                #     f'Network has been defined with {model.n_channels} input channels, ' \
-                #     f'but loaded images have {images.shape[1]} channels. Please check that ' \
-                #     'the images are loaded correctly.'
+                # Reshape images and masks to merge tile dimension with batch dimension
+                batch_size, num_tiles, channels, height, width = images.shape
+                images = images.view(batch_size * num_tiles, channels, height, width)
+                true_masks = true_masks.view(batch_size * num_tiles, height, width)
+
+                assert images.shape[1] == model.n_channels, \
+                    f'Network has been defined with {model.n_channels} input channels, ' \
+                    f'but loaded images have {images.shape[1]} channels. Please check that ' \
+                    'the images are loaded correctly.'
 
                 images = images.to(device=device, dtype=torch.float32)
                 true_masks = true_masks.to(device=device, dtype=torch.float32)
@@ -87,20 +92,16 @@ def train_model(
 
                 # Forward pass
                 with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
-                    # Go through the tiles
-                    loss = 0
-                    for i in range(images.shape[1]):
-                        # print(images[:,i].shape, true_masks[:,i].shape)
-                        masks_pred_logits = model(images[:,i])
-                        loss += criterion(masks_pred_logits, true_masks[:,i].unsqueeze(1))
+                    masks_pred_logits = model(images)
+                    loss = criterion(masks_pred_logits, true_masks.unsqueeze(1))
 
-                        # Predictions with probabilities
-                        masks_pred = F.sigmoid(masks_pred_logits).squeeze(dim=1)
-                        loss += dice_loss(
-                            masks_pred.float(),
-                            torch.squeeze(true_masks[:,i], dim=1).float(),
-                            multiclass=False
-                        )
+                    # Predictions with probabilities
+                    masks_pred = F.sigmoid(masks_pred_logits).squeeze(dim=1)
+                    loss += dice_loss(
+                        masks_pred.float(),
+                        torch.squeeze(true_masks, dim=1).float(),
+                        multiclass=False
+                    )
 
                 grad_scaler.scale(loss).backward() # Populate gradients
                 nn.utils.clip_grad_norm_(model.parameters(), grad_clipping)
@@ -181,43 +182,45 @@ def evaluate(net, dataloader: DataLoader, device: torch.device):
     for batch in tqdm(dataloader, total=num_val_batches, desc='Evaluation round', unit='batch', position=0, leave=False):
         images, true_masks = batch
 
+        # Reshape images and masks to merge tile dimension with batch dimension
+        batch_size, num_tiles, channels, height, width = images.shape
+        images = images.view(batch_size * num_tiles, channels, height, width)
+        true_masks = true_masks.view(batch_size * num_tiles, height, width)
+
         # move images and labels to correct device and type
         images = images.to(device=device, dtype=torch.float32)
         true_masks = true_masks.to(device=device, dtype=torch.float32)
 
         # predict the mask (shape: B x C x H x W)
-        for i in range(images.shape[1]):
-            mask_preds = net(images[:,i])
-            true_mask = true_masks[:,i]
+        mask_preds = net(images)
 
-            if net.n_classes == 1:
-                assert true_mask.min() >= 0 and true_mask.max() <= 1, 'True mask indices should be in [0, 1]'
-                mask_preds = (F.sigmoid(mask_preds) > 0.5)
-                # Add an extra dimension
-                true_mask = true_mask.unsqueeze(1)
-                # compute the Dice score
-                dice_score += dice_coeff(mask_preds, true_mask, reduce_batch_first=False)
-            else:
-                assert true_mask.min() >= 0 and true_mask.max() < net.n_classes, 'True mask indices should be in [0, n_classes)'
-                # convert to one-hot format
-                mask_preds = F.one_hot(mask_preds.argmax(dim=1), net.n_classes).permute(0, 3, 1, 2)
-                # compute the Dice score, ignoring background
-                dice_score += multiclass_dice_coeff(mask_preds[:, 1:], true_mask[:, 1:], reduce_batch_first=False)
+        if net.n_classes == 1:
+            assert true_masks.min() >= 0 and true_masks.max() <= 1, 'True mask indices should be in [0, 1]'
+            mask_preds = (F.sigmoid(mask_preds) > 0.5)
+            # Add an extra dimension
+            true_masks = true_masks.unsqueeze(1)
+            # compute the Dice score
+            dice_score += dice_coeff(mask_preds, true_masks, reduce_batch_first=False)
+        else:
+            assert true_masks.min() >= 0 and true_masks.max() < net.n_classes, 'True mask indices should be in [0, n_classes)'
+            # convert to one-hot format
+            mask_preds = F.one_hot(mask_preds.argmax(dim=1), net.n_classes).permute(0, 3, 1, 2)
+            # compute the Dice score, ignoring background
+            dice_score += multiclass_dice_coeff(mask_preds[:, 1:], true_masks[:, 1:], reduce_batch_first=False)
 
-            # Move the predictions and labels to the CPU and convert them to numpy arrays
-            mask_preds = mask_preds.cpu().detach().numpy()
-            true_mask = true_mask.cpu().numpy()
+        # Move the predictions and labels to the CPU and convert them to numpy arrays
+        mask_preds = mask_preds.cpu().detach().numpy()
+        true_masks = true_masks.cpu().numpy()
 
-            for j in range(len(images[:,i])):
-                # Label the binary prediction and count the number of cells
-                _, num_cells_pred = label(mask_preds[j], return_num=True)
-                _, num_cells_label = label(true_mask[j], return_num=True)
+        for i in range(len(images)):
+            # Label the binary prediction and count the number of cells
+            _, num_cells_pred = label(mask_preds[i], return_num=True)
+            _, num_cells_label = label(true_masks[i], return_num=True)
 
-                total_cells += num_cells_label
-                detected_cells += num_cells_pred
+            total_cells += num_cells_label
+            detected_cells += num_cells_pred
 
     cell_detection_rate = detected_cells / total_cells if total_cells > 0 else 0
 
     net.train()
     return dice_score / max(num_val_batches, 1), cell_detection_rate
-
