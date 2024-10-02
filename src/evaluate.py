@@ -22,6 +22,12 @@ def evaluate(net, dataloader: DataLoader, device: torch.device):
     for batch in tqdm(dataloader, total=num_val_batches, desc='Evaluation round', unit='batch', position=0, leave=False):
         images, true_masks = batch
 
+        if images.dim() == 5:
+            # Reshape images and masks to merge tile dimension with batch dimension
+            batch_size, num_tiles, channels, height, width = images.shape
+            images = images.view(batch_size * num_tiles, channels, height, width)
+            true_masks = true_masks.view(batch_size * num_tiles, height, width)
+
         # move images and labels to correct device and type
         images = images.to(device=device, dtype=torch.float32)
         true_masks = true_masks.to(device=device, dtype=torch.float32)

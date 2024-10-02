@@ -28,7 +28,7 @@ def train_model(
     amp: bool = False,
     checkpoint_dir = Path('checkpoints'),
     wandb_logging: bool = False,
-    dilation = 0
+    tile_ratio: int = 1,
 ):
     assert model.n_classes == 1, 'Can only train binary classification model with this function'
 
@@ -45,10 +45,8 @@ def train_model(
             'learning_rate': learning_rate,
             'bio_len': train_loader.dataset.length,
             'amp': amp,
-            'dilation': dilation,
+            'tile_ratio': tile_ratio,
             'trainable_params': summary(model).trainable_params,
-            # 'train_size': len(train_loader.dataset),
-            # 'val_size': len(val_loader.dataset),
         })
 
     print(f'''Starting training:
@@ -59,7 +57,6 @@ def train_model(
         Validation size: {len(val_loader.dataset)}
         Device:          {device.type}
         Mixed Precision: {amp}
-        Dilatation:      {dilation}
     ''')
 
     grad_clipping = 1.0
@@ -75,6 +72,12 @@ def train_model(
         with tqdm(total=len(train_loader.dataset), desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
             for i, (batch) in enumerate(train_loader):
                 images, true_masks = batch
+
+                if tile_ratio > 1:
+                    # Reshape images and masks to merge tile dimension with batch dimension
+                    batch_size, num_tiles, channels, height, width = images.shape
+                    images = images.view(batch_size * num_tiles, channels, height, width)
+                    true_masks = true_masks.view(batch_size * num_tiles, height, width)
 
                 assert images.shape[1] == model.n_channels, \
                     f'Network has been defined with {model.n_channels} input channels, ' \
@@ -164,94 +167,3 @@ def save_model(model: nn.Module, epoch: int, lr: float, dir):
     state_dict = model.state_dict()
     state_dict['learning_rate'] = lr
     torch.save(state_dict, str(dir / f'checkpoint_epoch{epoch}.pth'))
-
-
-def get_args():
-    import argparse
-    parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.001, help='Learning rate', dest='lr')
-    parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--predict', type=str, default=False, help='Load image and perform prediction on it (use with load flag to use trained model)')
-    parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
-    parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
-    parser.add_argument('--eval', action='store_true', default=False, help='Only evaluate the model')
-    return parser.parse_args()
-
-# not working
-def main():
-    import os
-
-    from src.datasets import create_datasets
-    from src.unet import UNet
-
-    args = get_args()
-
-    train_percent = 0.86
-    bio_len = 16
-    mask_size = 80
-    batch_size = 4
-
-    files = os.listdir(data_path)
-    train_size = int(train_percent * len(files))
-    val_size = len(files) - train_size
-    train_files, val_files = torch.utils.data.random_split(files, [train_size, val_size])
-
-    mean, std = calculate_mean_and_std(data_path, train_files, biosensor_length=bio_len)
-
-    train_dataset = BiosensorDataset(data_path, train_files, mean, std, bool, biosensor_length=bio_len, mask_size=mask_size)
-    val_dataset = BiosensorDataset(data_path, val_files, mean, std, bool, biosensor_length=bio_len, mask_size=mask_size)
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using device {device}')
-
-    model = UNet(n_channels=bio_len, n_classes=1, bilinear=args.bilinear)
-    model.to(device)
-    print(f'Network:\n'
-        f'\t{model.n_channels} input channels\n'
-        f'\t{model.n_classes} output channels (classes)\n'
-        f'\t{"Bilinear" if model.bilinear else "Transposed conv"} upscaling')
-
-    learning_rate = args.lr
-    if args.load:
-        state_dict = torch.load(args.load, map_location=device)
-        if 'learning_rate' in state_dict:
-            learning_rate = state_dict['learning_rate']
-            del state_dict['learning_rate']
-        model.load_state_dict(state_dict)
-        print(f'Successfully loaded model from {args.load}')
-
-    if args.predict:
-        out_img, out_mask = Path('colored.png'), Path('mask.png')
-        print(f'Segmenting image: {args.predict}')
-        mask = predict_image(model, args.predict, out_img)
-        Image.fromarray(mask).save(out_mask)
-        print(f'Colored image saved to: {out_img}')
-        print(f'Predicted mask saved to: {out_mask}')
-        return
-
-    if args.eval:
-        dice_score = evaluate(model, test_loader, device)
-        print(f'Validation Dice: {dice_score}')
-        return
-
-    try:
-        train_model(
-            model,
-            device,
-            train_loader,
-            val_loader,
-            learning_rate=learning_rate,
-            epochs=args.epochs,
-            amp=args.amp
-        )
-    except torch.cuda.OutOfMemoryError:
-        torch.cuda.empty_cache()
-        print('Detected OutOfMemoryError!')
-
-# if __name__ == '__main__':
-#     main()
