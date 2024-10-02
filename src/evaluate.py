@@ -26,6 +26,7 @@ def evaluate(net, dataloader: DataLoader, device: torch.device):
             # Reshape images and masks to merge tile dimension with batch dimension
             batch_size, num_tiles, channels, height, width = images.shape
             images = images.view(batch_size * num_tiles, channels, height, width)
+            batch_size, num_tiles, height, width = true_masks.shape
             true_masks = true_masks.view(batch_size * num_tiles, height, width)
 
         # move images and labels to correct device and type

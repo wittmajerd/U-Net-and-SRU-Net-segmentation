@@ -77,6 +77,7 @@ def train_model(
                     # Reshape images and masks to merge tile dimension with batch dimension
                     batch_size, num_tiles, channels, height, width = images.shape
                     images = images.view(batch_size * num_tiles, channels, height, width)
+                    batch_size, num_tiles, height, width = true_masks.shape
                     true_masks = true_masks.view(batch_size * num_tiles, height, width)
 
                 assert images.shape[1] == model.n_channels, \

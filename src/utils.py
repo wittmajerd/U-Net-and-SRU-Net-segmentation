@@ -5,7 +5,7 @@ import scipy.ndimage
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-from evaluate import evaluate
+from src.evaluate import evaluate
 
 
 def evaluate_after_training(model, val_loader, test_loader, device):
@@ -89,8 +89,6 @@ def plot_loader_data(loader, title):
 
             plt.show()
 
-plot_loader_data(test_loader, 'Test')
-
 def plot_loader_tiles_data(loader, title):
     for batch_idx, (data, labels) in enumerate(loader):
         # Move the data and labels to the CPU
@@ -100,7 +98,7 @@ def plot_loader_tiles_data(loader, title):
         if batch_idx == 1:
             break
 
-        for i in range(batch_size):
+        for i in range(len(data)):
             plot_tiles(data[i], labels[i])
 
 def create_tiles(bio, mask, ratio):
