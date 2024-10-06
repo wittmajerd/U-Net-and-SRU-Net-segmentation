@@ -15,7 +15,7 @@ def evaluate_after_training(model, val_loader, test_loader, device):
     print(f'Test dice score: {dice_score}, Detection rate: {detection_rate}')
 
 def plot_results(bio, mask, prediction, binary_prediction):
-    plt.figure(figsize=(30, 10))
+    plt.figure(figsize=(40, 10))
 
     bio = bio.squeeze().cpu().detach().numpy()
     mask = mask.squeeze().cpu().detach().numpy()
@@ -30,12 +30,15 @@ def plot_results(bio, mask, prediction, binary_prediction):
     colored_prediction[binary_prediction == 1] = [0, 0, 1, 1]
     colored_prediction[binary_prediction == 0] = [0, 0, 0, 0]
 
-    plt.subplot(1, 3, 1)
-    plt.imshow(bio, cmap='gray')
-    plt.imshow(colored_mask, alpha=0.6)
-    plt.title('Biosensor with mask')
+    plt.subplot(1, 4, 1)
+    plt.imshow(bio)
+    plt.title('Biosensor')
+
+    plt.subplot(1, 4, 2)
+    plt.imshow(colored_mask)
+    plt.title('Mask')
     
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 4, 3)
     plt.imshow(prediction, cmap='gray')
     plt.imshow(colored_prediction, alpha=0.6)
     plt.title('Prediction with the binary')
@@ -43,7 +46,7 @@ def plot_results(bio, mask, prediction, binary_prediction):
     intercection = np.zeros((mask.shape[0], mask.shape[1], 4), dtype=np.float32)
     intercection[(mask == 1) & (binary_prediction == 1)] = [0, 1, 0, 1]
 
-    plt.subplot(1, 3, 3)
+    plt.subplot(1, 4, 4)
     # plt.imshow(bio, cmap='gray')
     plt.imshow(colored_mask)
     plt.imshow(colored_prediction)
