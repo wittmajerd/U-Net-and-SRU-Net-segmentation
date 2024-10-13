@@ -2,14 +2,13 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import time, os
-from scipy.ndimage import maximum_filter1d, find_objects, center_of_mass
+import os
+from scipy.ndimage import find_objects
 import torch
 import numpy as np
 import tifffile
 from tqdm import trange
-from numba import njit, prange, float32, int32, vectorize
-import cv2
+from numba import njit, prange, float32, int32
 import fastremap
 
 import logging
@@ -17,10 +16,7 @@ import logging
 dynamics_logger = logging.getLogger(__name__)
 
 import torch
-from torch import optim, nn
 import torch.nn.functional as F
-
-
 
 @njit("(float64[:], int32[:], int32[:], int32, int32, int32, int32)", nogil=True)
 def _extend_centers(T, y, x, ymed, xmed, Lx, niter):

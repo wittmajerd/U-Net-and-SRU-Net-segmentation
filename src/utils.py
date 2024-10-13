@@ -61,13 +61,13 @@ def plot_results(bio, mask, prediction, binary_prediction):
     
     plt.show()
 
-def plot_loader_data(loader, title):
+def plot_loader_data(loader, title, stop=1):
     for batch_idx, (data, labels) in enumerate(loader):
         # Move the data and labels to the CPU
         data = data.cpu().numpy()
         labels = labels.cpu().numpy()
 
-        if batch_idx == 1:
+        if batch_idx == stop:
             break
 
         # Plot each image in the batch

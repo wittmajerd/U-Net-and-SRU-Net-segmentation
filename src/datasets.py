@@ -6,6 +6,8 @@ import numpy as np
 import os
 import cv2
 
+from src.dynamics import *
+
 def create_datasets(config, create_config, calc_config):
     path = config['path']
     train_percent = create_config['train_percent']
@@ -29,6 +31,32 @@ def create_datasets(config, create_config, calc_config):
         test_dataset = BiosensorDataset(test_files, mean, std, False, config, calc_config)
         return train_dataset, val_dataset, test_dataset
     return train_dataset, val_dataset
+
+def calculate_mean_and_std(path, train_files, calc_config):
+    biosensor_length = calc_config.get('biosensor_length', 8)
+    mask_size = calc_config.get('mask_size', 80)
+    input_scaling = calc_config.get('input_scaling', False)
+    upscale_mode = calc_config.get('upscale_mode', 'nearest')
+
+    # Preallocate a tensor of the correct size
+    if input_scaling:
+        data = torch.empty((len(train_files), biosensor_length, mask_size, mask_size))
+    else:
+        data = torch.empty((len(train_files), biosensor_length, 80, 80))
+
+    for i, file in enumerate(train_files):
+        loaded_data = np.load(path + file)
+        # Get the biosensor data with the correct length
+        biosensor = torch.from_numpy(loaded_data['biosensor'].astype(np.float32))
+        indices = lin_indices(biosensor.shape[0], biosensor_length)
+        bio = biosensor[indices]
+        if input_scaling:
+            bio = torch.nn.functional.interpolate(bio.unsqueeze(0), size=(mask_size, mask_size), mode=upscale_mode).squeeze(0)
+        # Fill the preallocated tensor
+        data[i] = bio
+
+    return data.mean(), data.std()
+
 
 # Gives linearly spaced indices for the biosensor subsampling
 # n is the length of the original biosensor
@@ -60,32 +88,6 @@ def create_tiles(bio, mask, ratio, overlap_rate=0):
 
     return bio_tiles, mask_tiles
 
-def calculate_mean_and_std(path, train_files, calc_config):
-    biosensor_length = calc_config.get('biosensor_length', 8)
-    mask_size = calc_config.get('mask_size', 80)
-    input_scaling = calc_config.get('input_scaling', False)
-    upscale_mode = calc_config.get('upscale_mode', 'nearest')
-
-    # Preallocate a tensor of the correct size
-    if input_scaling:
-        data = torch.empty((len(train_files), biosensor_length, mask_size, mask_size))
-    else:
-        data = torch.empty((len(train_files), biosensor_length, 80, 80))
-
-    for i, file in enumerate(train_files):
-        loaded_data = np.load(path + file)
-        # Get the biosensor data with the correct length
-        biosensor = torch.from_numpy(loaded_data['biosensor'].astype(np.float32))
-        indices = lin_indices(biosensor.shape[0], biosensor_length)
-        bio = biosensor[indices]
-        if input_scaling:
-            bio = torch.nn.functional.interpolate(bio.unsqueeze(0), size=(mask_size, mask_size), mode=upscale_mode).squeeze(0)
-        # Fill the preallocated tensor
-        data[i] = bio
-
-    return data.mean(), data.std()
-
-
 class BiosensorDataset(Dataset):
     def __init__(self, files, mean, std, augment, config, calc_config):
         self.path = config['path']
@@ -114,7 +116,8 @@ class BiosensorDataset(Dataset):
     def __getitem__(self, index):
         data = np.load(self.path + self.files[index])
         bio = self.uniform_biosensor(torch.from_numpy(data['biosensor'].astype(np.float32)))
-        mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
+        # mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
+        mask = self.gradient_mask(torch.from_numpy(data['mask'].astype("int64")))
         bio = self.normalize(bio)
         if self.transform:
             mask = tv_tensors.Mask(mask)
@@ -162,6 +165,24 @@ class BiosensorDataset(Dataset):
             return dilated_mask
         
         return interpolated_mask
+
+    def gradient_mask(self, mask):
+        interpolated_mask = torch.nn.functional.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size=(self.mask_size, self.mask_size), mode=self.upscale_mode).squeeze(0).squeeze(0).byte()
+        mask_np = interpolated_mask.numpy()
+        device = device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if device == 'cuda':
+            flows, centers = masks_to_flows_gpu(mask_np, device)
+        else:
+            flows, centers = masks_to_flows_cpu(mask_np)
+
+        flow_sum = flows[0] + flows[1]
+        min_flow_sum = np.min(flow_sum)
+        max_flow_sum = np.max(flow_sum)
+
+        # Apply Min-Max normalization
+        scaled_flow_sum = (flow_sum - min_flow_sum) / (max_flow_sum - min_flow_sum)
+
+        return scaled_flow_sum
 
 class AddGaussianNoise(object):
     def __init__(self, mean=0.0, std=0.0):
