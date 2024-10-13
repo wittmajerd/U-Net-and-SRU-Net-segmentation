@@ -38,20 +38,25 @@ def lin_indices(original_length, subsampled_length):
     indices = np.linspace(0, original_length - 1, subsampled_length + 1, dtype=int)
     return indices[1:]
 
-# Create tiles of the biosensor and mask with the given ratio
+# Create tiles of the biosensor and mask with the given tile ratio and overlap rate
 # Output biosensor shape: (ratio * ratio, ch, size, size)
 # Output mask shape: (ratio * ratio, size, size)
-# So basicli creates ratio * ratio batches of size x size tiles
+# So basically creates ratio * ratio batches of size x size tiles
 # If the mask is bigger then the tiles are also bigger at the same rate so SRU models can be trained
-def create_tiles(bio, mask, ratio):
-    ch, bh, bw = bio.shape
-    mh, mw = mask.shape
-    bio_size = bh // ratio
-    mask_size = mh // ratio
+# If the overlap rate is positive then the tiles will overlap so there will be more tiles than the ratio * ratio
+def create_tiles(bio, mask, ratio, overlap_rate=0):
+    ch, bio_h, bio_w = bio.shape
+    mask_h, mask_w = mask.shape
+    bio_size = bio_h // ratio
+    mask_size = mask_h // ratio
 
-    bio_tiles = bio.reshape(ch, ratio, bio_size, ratio, bio_size).permute(1, 3, 0, 2, 4).reshape(ratio * ratio, ch, bio_size, bio_size)
-    mask_tiles = mask.reshape(ratio, mask_size, ratio, mask_size).permute(0, 2, 1, 3).reshape(ratio * ratio, mask_size, mask_size)
-    # print(bio_tiles.shape, mask_tiles.shape)
+    bio_stride = bio_size - int(bio_size * overlap_rate)
+    mask_stride = mask_size - int(mask_size * overlap_rate)
+
+    bio_tiles = bio.unfold(1, bio_size, bio_stride).unfold(2, bio_size, bio_stride)
+    bio_tiles = bio_tiles.permute(1, 2, 0, 3, 4).reshape(-1, ch, bio_size, bio_size)
+    mask_tiles = mask.unfold(0, mask_size, mask_stride).unfold(1, mask_size, mask_stride)
+    mask_tiles = mask_tiles.permute(0, 1, 2, 3).reshape(-1, mask_size, mask_size)
 
     return bio_tiles, mask_tiles
 
@@ -95,6 +100,7 @@ class BiosensorDataset(Dataset):
         self.noise = config.get('noise', 0.0)
         self.tiling = config.get('tiling', False)
         self.tiling_ratio = config.get('tiling_ratio', 4)
+        self.overlap_rate = config.get('overlap_rate', 0)
         
         if augment:
             self.transform = v2.Compose([
@@ -115,7 +121,7 @@ class BiosensorDataset(Dataset):
             bio, mask = self.transform(bio, mask)
             bio = AddGaussianNoise(0., self.noise)(bio)
         if self.tiling:
-            bio, mask = create_tiles(bio, mask, self.tiling_ratio)
+            bio, mask = create_tiles(bio, mask, self.tiling_ratio, self.overlap_rate)
         return bio, mask
         
     def __len__(self):
