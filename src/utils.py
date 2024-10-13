@@ -104,22 +104,73 @@ def plot_loader_tiles_data(loader, title):
         for i in range(len(data)):
             plot_tiles(data[i], labels[i])
 
-def create_tiles(bio, mask, ratio):
-    ch, bh, bw = bio.shape
-    mh, mw = mask.shape
-    bio_size = bh // ratio
-    mask_size = mh // ratio
+# def create_tiles(bio, mask, ratio):
+#     ch, bh, bw = bio.shape
+#     mh, mw = mask.shape
+#     bio_size = bh // ratio
+#     mask_size = mh // ratio
 
-    bio_tiles = bio.reshape(ch, ratio, bio_size, ratio, bio_size).permute(1, 3, 0, 2, 4).reshape(ratio * ratio, ch, bio_size, bio_size)
-    mask_tiles = mask.reshape(ratio, mask_size, ratio, mask_size).permute(0, 2, 1, 3).reshape(ratio * ratio, mask_size, mask_size)
-    print(bio_tiles.shape, mask_tiles.shape)
+#     bio_tiles = bio.reshape(ch, ratio, bio_size, ratio, bio_size).permute(1, 3, 0, 2, 4).reshape(ratio * ratio, ch, bio_size, bio_size)
+#     mask_tiles = mask.reshape(ratio, mask_size, ratio, mask_size).permute(0, 2, 1, 3).reshape(ratio * ratio, mask_size, mask_size)
+#     print(bio_tiles.shape, mask_tiles.shape)
+
+#     return bio_tiles, mask_tiles
+
+def create_tiles(bio, mask, ratio, overlap_rate=0):
+    ch, bio_h, bio_w = bio.shape
+    mask_h, mask_w = mask.shape
+    bio_size = bio_h // ratio
+    mask_size = mask_h // ratio
+    # print(bio_size, mask_size)
+
+    bio_stride = bio_size - int(bio_size * overlap_rate)
+    mask_stride = mask_size - int(mask_size * overlap_rate)
+    print(bio_stride, mask_stride)
+
+    bio_tiles = bio.unfold(1, bio_size, bio_stride).unfold(2, bio_size, bio_stride)
+    print(bio_tiles.shape)
+    bio_tiles = bio_tiles.permute(1, 2, 0, 3, 4).reshape(-1, ch, bio_size, bio_size)
+    mask_tiles = mask.unfold(0, mask_size, mask_stride).unfold(1, mask_size, mask_stride)
+    # print(mask_tiles.shape)
+    mask_tiles = mask_tiles.permute(0, 1, 2, 3).reshape(-1, mask_size, mask_size)
 
     return bio_tiles, mask_tiles
 
-def merge_tiles(tiles):
-    n, h, w = tiles.shape
-    ratio = int(np.sqrt(n))
-    merged = tiles.reshape(ratio, ratio, h, w).permute(0, 2, 1, 3).reshape(ratio * h, ratio * w)
+# def merge_tiles(tiles):
+#     n, h, w = tiles.shape
+#     ratio = int(np.sqrt(n))
+#     merged = tiles.reshape(ratio, ratio, h, w).permute(0, 2, 1, 3).reshape(ratio * h, ratio * w)
+#     return merged
+
+def merge_tiles(tiles, original_size, overlap_rate=0):
+    num_tiles, tile_size, _ = tiles.shape
+    stride = tile_size - int(tile_size * overlap_rate)
+    ratio = original_size // tile_size
+
+    merged = torch.zeros(original_size, original_size)
+    contribution_map = torch.zeros(original_size, original_size)
+
+    idx = 0
+    for i in range(0, original_size - tile_size + 1, stride):
+        for j in range(0, original_size - tile_size + 1, stride):
+            merged[i:i + tile_size, j:j + tile_size] += tiles[idx]
+            contribution_map[i:i + tile_size, j:j + tile_size] += 1
+            idx += 1
+
+    # # Handle any edge cases for the last row/column of tiles
+    # if i + tile_size < original_size:
+    #     for j in range(0, original_size - tile_size + 1, stride):
+    #         merged[original_size - tile_size:, j:j + tile_size] += tiles[idx]
+    #         contribution_map[original_size - tile_size:, j:j + tile_size] += 1
+    #         idx += 1
+
+    # if j + tile_size < original_size:
+    #     for i in range(0, original_size - tile_size + 1, stride):
+    #         merged[i:i + tile_size, original_size - tile_size:] += tiles[idx]
+    #         contribution_map[i:i + tile_size, original_size - tile_size:] += 1
+    #         idx += 1
+
+    merged /= contribution_map
     return merged
 
 def plot_tiles(bio_tiles, mask_tiles):
