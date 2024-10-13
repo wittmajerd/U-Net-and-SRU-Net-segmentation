@@ -128,10 +128,8 @@ def create_tiles(bio, mask, ratio, overlap_rate=0):
     print(bio_stride, mask_stride)
 
     bio_tiles = bio.unfold(1, bio_size, bio_stride).unfold(2, bio_size, bio_stride)
-    print(bio_tiles.shape)
     bio_tiles = bio_tiles.permute(1, 2, 0, 3, 4).reshape(-1, ch, bio_size, bio_size)
     mask_tiles = mask.unfold(0, mask_size, mask_stride).unfold(1, mask_size, mask_stride)
-    # print(mask_tiles.shape)
     mask_tiles = mask_tiles.permute(0, 1, 2, 3).reshape(-1, mask_size, mask_size)
 
     return bio_tiles, mask_tiles
