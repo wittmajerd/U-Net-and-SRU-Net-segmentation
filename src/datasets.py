@@ -116,15 +116,15 @@ class BiosensorDataset(Dataset):
     def __getitem__(self, index):
         data = np.load(self.path + self.files[index])
         bio = self.uniform_biosensor(torch.from_numpy(data['biosensor'].astype(np.float32)))
-        # mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
-        mask = self.gradient_mask(torch.from_numpy(data['mask'].astype("int64")))
+        mask = self.uniform_mask(torch.from_numpy(data['mask'].astype(self.mask_type)), data['cell_centers'])
+        # mask = self.gradient_mask(torch.from_numpy(data['mask'].astype("int64")))
         bio = self.normalize(bio)
+        if self.tiling:
+            bio, mask = create_tiles(bio, mask, self.tiling_ratio, self.overlap_rate)
         if self.transform:
             mask = tv_tensors.Mask(mask)
             bio, mask = self.transform(bio, mask)
             bio = AddGaussianNoise(0., self.noise)(bio)
-        if self.tiling:
-            bio, mask = create_tiles(bio, mask, self.tiling_ratio, self.overlap_rate)
         return bio, mask
         
     def __len__(self):
@@ -175,12 +175,14 @@ class BiosensorDataset(Dataset):
         else:
             flows, centers = masks_to_flows_cpu(mask_np)
 
-        flow_sum = flows[0] + flows[1]
-        min_flow_sum = np.min(flow_sum)
-        max_flow_sum = np.max(flow_sum)
+        # flow_sum = flows[0] + flows[1]
+        # min_flow_sum = np.min(flow_sum)
+        # max_flow_sum = np.max(flow_sum)
+        # scaled_flow_sum = (flow_sum - min_flow_sum) / (max_flow_sum - min_flow_sum)
 
-        # Apply Min-Max normalization
-        scaled_flow_sum = (flow_sum - min_flow_sum) / (max_flow_sum - min_flow_sum)
+        flow_x, flow_y = flows
+        mask_bool = mask_np.astype(bool)
+        output = np.stack((flow_x, flow_y, mask_bool), axis=-1)
 
         return scaled_flow_sum
 
